@@ -1,0 +1,3 @@
+@echo off
+echo Abrindo MontaCalc no navegador...
+start "" "%~dp0app\index.html"

@@ -1,0 +1,23 @@
+div{
+    padding: 50px;
+}
+table{
+    background-color: #737373;
+    padding: 3px;
+}
+.botao{
+    color: #ffffff;
+    background-color: #000000;
+    font-size: 14px;
+    height: 40px;
+    width: 40px;
+}
+.resultado{
+    color: #000000;
+    background-color: #BDA442;
+    height: 40px;
+    width: 168px;
+    font-size: 18px;
+    font-weight: bold;
+
+}

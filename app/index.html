@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MontaCalc — Aprendendo programação com blocos</title>
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <span class="brand">Monta<em>Calc</em></span>
+      <span class="meta" id="nivel">Nível 1/10</span>
+      <span class="dots" id="dots"></span>
+      <span class="objetivo" id="objetivo"></span>
+      <span class="pontos" id="pontos">0 ★</span>
+    </header>
+
+    <main>
+      <section class="panel" id="blocks-panel">
+        <div class="panel-head">🟩 Blocos — monte o programa</div>
+        <div class="panel-body">
+          <div id="novidadesBar" hidden>
+            <div class="nov-bar-head">
+              <span>✦ Blocos novos deste nível</span>
+              <button type="button" id="novoBtn" class="chip-link" aria-label="Rever o que há de novo">rever</button>
+            </div>
+            <div id="novidadesList" class="nov-list"></div>
+          </div>
+          <div id="blockDiv"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="code-panel">
+        <div class="panel-head">📟 Código real — HTML, CSS e JavaScript</div>
+        <div class="panel-body"><pre id="code">// O código real aparecerá aqui conforme você monta os blocos.</pre></div>
+      </section>
+
+      <section class="panel" id="preview-panel">
+        <div class="panel-head">🧮 Sua calculadora — montada por você</div>
+        <div class="panel-body" id="preview"></div>
+      </section>
+    </main>
+
+    <footer>
+      <button id="dicaBtn" class="ghost">💡 Dica</button>
+      <button id="execBtn" class="gold">▶ Executar</button>
+      <button id="testBtn" class="green">✓ Testar</button>
+      <button id="resetBtn" class="ghost">↺ Reiniciar</button>
+      <button id="nextBtn">Próximo nível ▶</button>
+      <div class="feedback" id="feedback">Bem-vindo! Arraste os blocos para começar.</div>
+    </footer>
+
+    <div id="novoOverlay" hidden>
+      <div id="novoCard" role="dialog" aria-modal="true" aria-label="O que há de novo neste nível">
+        <div class="novo-title">✨ O que há de novo neste nível</div>
+        <div id="novoCorpo" class="novo-body"></div>
+        <button type="button" id="novoEntendi" class="green">Entendi! 🛠️</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/blockly/blockly_compressed.js"></script>
+  <script src="vendor/blockly/pt-br.js"></script>
+  <script src="src/runtime/evaluator.js"></script>
+  <script src="src/ir/validate.js"></script>
+  <script src="src/runtime/calc-dom.js"></script>
+  <script src="src/compiler/codegen.js"></script>
+  <script src="src/runtime/run-program.js"></script>
+  <script src="src/ir/serialize.js"></script>
+  <script src="src/blocks/block-defs.js"></script>
+  <script src="src/levels/levels.js"></script>
+  <script src="src/runtime/sandbox.js"></script>
+  <script src="src/ui/app.js"></script>
+</body>
+</html>
