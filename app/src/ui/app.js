@@ -42,7 +42,7 @@
   // ---- código / sandbox ----
   var workspace = null;
   var sandbox = null;
-  var currentCode = '';
+  var currentCode = null;   // { html, css, js } — as 3 partes do programa gerado
 
   function currentLevel() { return M.Levels.getLevel(CURRENT_LEVEL); }
 
@@ -212,33 +212,66 @@
   }
 
   // ---- painel de código ----
-  // O código mostrado é REAL (o mesmo que roda). Destacamos comentários, textos e
-  // palavras-chave para o aluno separar "o que o computador faz" de "a explicação".
+  // O código mostrado é REAL (o mesmo que roda), em 3 caixas: HTML, CSS e JavaScript.
+  // Destacamos comentários, textos e palavras-chave para o aluno separar
+  // "o que o computador faz" de "a explicação".
   var PALAVRAS = 'function|return|var|for|if|else|try|catch|new|true|false|null';
   var TOKENS = new RegExp(
     '(\\/\\/[^\\n]*)' +           // comentário de linha
-    '|(`[^`]*`)' +                // texto entre crases (o CSS)
+    '|(`[^`]*`)' +                // texto entre crases
     "|('(?:[^'\\\\\\n]|\\\\.)*')" + // texto entre aspas simples
     '|("(?:[^"\\\\\\n]|\\\\.)*")' + // texto entre aspas duplas
     '|\\b(' + PALAVRAS + ')\\b', 'g');
+
+  // HTML (já escapado): <!-- comentário -->, nome da tag, atributo="valor".
+  var TOKENS_HTML = /(&lt;!--[\s\S]*?--&gt;)|(&lt;\/?)([a-zA-Z][a-zA-Z0-9]*)|([a-zA-Z-]+)=("[^"]*")/g;
+  // CSS: /* comentário */, seletor antes de "{", propriedade antes de ":", valores (#cor, 40px).
+  var TOKENS_CSS = /(\/\*[\s\S]*?\*\/)|([.#]?[a-zA-Z][\w-]*)(\s*\{)|([a-z-]+)(\s*:)|(#[0-9A-Fa-f]{3,6}\b|\d+px)/g;
 
   function escapeHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  function span(cls, txt) { return '<span class="' + cls + '">' + txt + '</span>'; }
+
   function realcar(code) {
     return escapeHtml(code).replace(TOKENS, function(m, comentario, crase, aspa1, aspa2, palavra) {
-      if (comentario) return '<span class="c-com">' + comentario + '</span>';
-      if (crase || aspa1 || aspa2) return '<span class="c-str">' + (crase || aspa1 || aspa2) + '</span>';
-      return '<span class="c-kw">' + palavra + '</span>';
+      if (comentario) return span('c-com', comentario);
+      if (crase || aspa1 || aspa2) return span('c-str', crase || aspa1 || aspa2);
+      return span('c-kw', palavra);
     });
   }
 
-  function renderCode(code) {
-    var box = el.code.parentNode;               // .panel-body (quem rola)
-    var pos = box ? box.scrollTop : 0;
-    el.code.innerHTML = realcar(code);
-    if (box) box.scrollTop = pos;               // não perde o lugar da leitura
+  function realcarHtml(code) {
+    return escapeHtml(code).replace(TOKENS_HTML, function(m, comentario, abre, tag, attr, valor) {
+      if (comentario) return span('c-com', comentario);
+      if (tag) return abre + span('c-tag', tag);
+      return span('c-attr', attr) + '=' + span('c-str', valor);
+    });
+  }
+
+  function realcarCss(code) {
+    return escapeHtml(code).replace(TOKENS_CSS, function(m, comentario, seletor, chave, prop, doisPontos, valor) {
+      if (comentario) return span('c-com', comentario);
+      if (seletor) return span('c-tag', seletor) + chave;
+      if (prop) return span('c-prop', prop) + doisPontos;
+      return span('c-str', valor);
+    });
+  }
+
+  // Troca o conteúdo de uma caixa sem perder o lugar da leitura (cada uma rola sozinha).
+  function mostrarCodigo(pre, html) {
+    if (!pre) return;
+    var pos = pre.scrollTop;
+    pre.innerHTML = html;
+    pre.scrollTop = pos;
+  }
+
+  function renderCode(parts) {
+    parts = parts || {};
+    mostrarCodigo(el.codeHtml, realcarHtml(parts.html || ''));
+    mostrarCodigo(el.codeCss, realcarCss(parts.css || ''));
+    mostrarCodigo(el.codeJs, realcar(parts.js || ''));
   }
 
   var debounceTimer = null;
@@ -415,7 +448,7 @@
 
   function init() {
     loadProgress();
-    ['nivel','objetivo','dots','pontos','blockDiv','code','preview','feedback','dicaBtn','execBtn','testBtn','nextBtn','resetBtn',
+    ['nivel','objetivo','dots','pontos','blockDiv','codeHtml','codeCss','codeJs','preview','feedback','dicaBtn','execBtn','testBtn','nextBtn','resetBtn',
      'novidadesBar','novidadesList','novoBtn','novoOverlay','novoCorpo','novoEntendi'].forEach(function(id) {
       el[id] = $(id);
     });

@@ -1,18 +1,19 @@
 /*
- * MontaCalc — Compilador IR -> JavaScript REAL, comentado e explicado.
+ * MontaCalc — Compilador IR -> código REAL (HTML + CSS + JavaScript), comentado.
  * Puro (sem DOM/Blockly). Testável em node.
  *
  * PRINCÍPIO PEDAGÓGICO: o painel de código não pode conter atalhos mágicos.
  * O BLOCO é simplificado; o CÓDIGO é o de verdade — o mesmo que uma pessoa
- * escreveria à mão para construir esta página. Por isso NÃO emitimos chamadas
- * do tipo `criarCorpo()`: emitimos os passos reais (document.createElement,
- * setAttribute, appendChild, addEventListener), com comentários que mostram o
- * HTML equivalente e explicam o que cada linha faz.
+ * escreveria à mão, separado nas TRÊS partes de uma página web, como na
+ * calculadora original (calc.html / estilos.css / operacoes.js):
  *
- * Saída (v2):
- *   PARTE 1 — montarCalculadora(): CSS (<style>) + estrutura (form > table > tr > td).
- *             A grade nasce COMPLETA (6x4); cada peça só preenche a casa dela.
- *   PARTE 2 — comportamento: uma função nomeada por botão + addEventListener.
+ *   html — a ESTRUTURA: <form> > <table> > <tr> > <td> com visor e botões.
+ *          A grade nasce COMPLETA (6x4); cada peça só preenche a casa dela.
+ *   css  — a APARÊNCIA: as regras de estilos.css.
+ *   js   — o COMPORTAMENTO: uma função nomeada por botão + addEventListener.
+ *
+ * codegen(ir) devolve { html, css, js }. O sandbox instala exatamente esses
+ * três textos (o CSS num <style>, o HTML no <body> e roda o JS).
  *
  * Layout (grade, rótulos, CSS) vem de `runtime/calc-dom.js` (fonte única).
  */
@@ -29,6 +30,15 @@
       .split("'").join("\\'")
       .split('\n').join('\\n');
     return Q + s + Q;
+  }
+
+  // Texto dentro de um atributo HTML (entre aspas duplas).
+  function htmlAttr(v) {
+    return String(v)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   // Layout (fonte única). Resolvido tarde: em file:// pelo namespace global,
@@ -55,152 +65,105 @@
     return 'aoClicar' + id.charAt(0).toUpperCase() + id.slice(1);
   }
 
-  // Nome da variável do elemento do botão: botao7, botaoMais, botaoDel...
-  var VAR_SUFFIX = { '+':'Mais', '-':'Menos', '*':'Vezes', '/':'Dividir', '=':'Igual', '.':'Ponto', 'C':'C', 'del':'Del' };
-  function buttonVarName(token) {
-    var t = String(token);
-    var suffix = VAR_SUFFIX[t] || t.replace(/[^A-Za-z0-9_]/g, '');
-    return 'botao' + (suffix || 'Tecla');
-  }
-
-  function regua(prefixo, largura) {
-    var n = Math.max(3, largura - prefixo.length);
-    var traco = '';
-    for (var i = 0; i < n; i++) traco += '-';
-    return prefixo + ' ' + traco;
-  }
+  function push(lines, novas) { novas.forEach(function(l) { lines.push(l); }); }
 
   // ------------------------------------------------------------------
-  // PARTE 1 — o código real que monta a calculadora
+  // HTML — a estrutura
   // ------------------------------------------------------------------
 
-  function genEstilo(indent) {
+  function genHtml(setup) {
     var D = dom();
-    var lines = [];
-    lines.push(indent + regua('// ---- O ESTILO (CSS)', 66));
-    lines.push(indent + '// <style> guarda as regras de aparência da página. São as mesmas');
-    lines.push(indent + '// regras do arquivo estilos.css da calculadora original:');
-    lines.push(indent + '//   .botao { ... } vale para TODO elemento com class="botao".');
-    lines.push(indent + 'var estilo = document.createElement(' + Q + 'style' + Q + ');');
-    lines.push(indent + 'estilo.textContent = `');
-    D.CSS_LINES.forEach(function(l) { lines.push(indent + INDENT + l); });
-    lines.push(indent + '`;');
-    lines.push(indent + 'document.head.appendChild(estilo);');
-    return lines;
-  }
+    var hasBody = false, hasVisor = false, botoes = {}, temBotao = false;
+    setup.forEach(function(op) {
+      if (op.op === 'ui.createBody') hasBody = true;
+      else if (op.op === 'ui.createVisor') hasVisor = true;
+      else if (op.op === 'ui.addButton') {
+        var slot = D.buttonSlot(op.token);
+        if (slot) { botoes[slot.row + ',' + slot.col] = String(op.token); temBotao = true; }
+      }
+    });
 
-  function genCorpo(indent) {
-    var lines = [];
-    lines.push(indent + regua('// ---- O CORPO (HTML)', 66));
-    lines.push(indent + '// Em HTML puro, o corpo da calculadora se escreve assim:');
-    lines.push(indent + '//');
-    lines.push(indent + '//   <form name="formulario">');
-    lines.push(indent + '//     <table>');
-    lines.push(indent + '//       <tr><td colspan="4"></td></tr>                <-- casa do visor');
-    lines.push(indent + '//       <tr><td></td><td></td><td></td><td></td></tr> <-- 5 linhas');
-    lines.push(indent + '//       ...                                               de 4 casas');
-    lines.push(indent + '//     </table>');
-    lines.push(indent + '//   </form>');
-    lines.push(indent + '//');
-    lines.push(indent + '// document.createElement("tag") cria a mesma tag por JavaScript e');
-    lines.push(indent + '// appendChild(filho) coloca uma tag dentro da outra.');
-    lines.push(indent + '// A grade nasce COMPLETA (6 linhas x 4 colunas): as casas ficam');
-    lines.push(indent + '// vazias esperando o visor e os botões, e nada muda de lugar depois.');
-    lines.push('');
-    lines.push(indent + 'var form = document.createElement(' + Q + 'form' + Q + ');');
-    lines.push(indent + 'form.setAttribute(' + Q + 'name' + Q + ', ' + Q + 'formulario' + Q + ');');
-    lines.push('');
-    lines.push(indent + 'var tabela = document.createElement(' + Q + 'table' + Q + ');');
-    lines.push('');
-    lines.push(indent + '// Linha 0: a casa do visor, esticada pelas 4 colunas (colspan="4").');
-    lines.push(indent + 'var linhaDoVisor = document.createElement(' + Q + 'tr' + Q + ');');
-    lines.push(indent + 'var casaDoVisor = document.createElement(' + Q + 'td' + Q + ');');
-    lines.push(indent + 'casaDoVisor.setAttribute(' + Q + 'colspan' + Q + ', ' + Q + '4' + Q + ');');
-    lines.push(indent + 'linhaDoVisor.appendChild(casaDoVisor);');
-    lines.push(indent + 'tabela.appendChild(linhaDoVisor);');
-    lines.push('');
-    lines.push(indent + '// Linhas 1 a 5: o teclado — 4 casas (<td>) em cada linha.');
-    lines.push(indent + 'for (var linha = 1; linha <= 5; linha++) {');
-    lines.push(indent + INDENT + 'var tr = document.createElement(' + Q + 'tr' + Q + ');');
-    lines.push(indent + INDENT + 'for (var coluna = 0; coluna < 4; coluna++) {');
-    lines.push(indent + INDENT + INDENT + 'tr.appendChild(document.createElement(' + Q + 'td' + Q + '));');
-    lines.push(indent + INDENT + '}');
-    lines.push(indent + INDENT + 'tabela.appendChild(tr);');
-    lines.push(indent + '}');
-    lines.push('');
-    lines.push(indent + '// Encaixa tudo: a <table> dentro do <form>, o <form> na página.');
-    lines.push(indent + 'form.appendChild(tabela);');
-    lines.push(indent + 'document.body.appendChild(form);');
-    return lines;
-  }
-
-  function genVisor(indent) {
-    var lines = [];
-    lines.push(indent + regua('// ---- O VISOR', 66));
-    lines.push(indent + '// Em HTML:');
-    lines.push(indent + '//   <input type="text" maxlength="18" class="resultado"');
-    lines.push(indent + '//          name="tela" id="tela" readonly>');
-    lines.push(indent + '// O visor é a MEMÓRIA da calculadora: o que aparece nele fica');
-    lines.push(indent + '// guardado em tela.value. O id="tela" é o nome que usamos para');
-    lines.push(indent + '// reencontrá-lo depois com document.querySelector("#tela").');
-    lines.push(indent + 'var visor = document.createElement(' + Q + 'input' + Q + ');');
-    lines.push(indent + 'visor.setAttribute(' + Q + 'type' + Q + ', ' + Q + 'text' + Q + ');        // é um campo de texto');
-    lines.push(indent + 'visor.setAttribute(' + Q + 'maxlength' + Q + ', ' + Q + '18' + Q + ');     // cabem 18 caracteres');
-    lines.push(indent + 'visor.setAttribute(' + Q + 'class' + Q + ', ' + Q + 'resultado' + Q + ');  // usa a regra .resultado do CSS');
-    lines.push(indent + 'visor.setAttribute(' + Q + 'name' + Q + ', ' + Q + 'tela' + Q + ');');
-    lines.push(indent + 'visor.setAttribute(' + Q + 'id' + Q + ', ' + Q + 'tela' + Q + ');');
-    lines.push(indent + 'visor.setAttribute(' + Q + 'readonly' + Q + ', ' + Q + Q + ');        // ninguém digita direto nele');
-    lines.push('');
-    lines.push(indent + '// Coloca o visor na casa que já estava reservada para ele (linha 0).');
-    lines.push(indent + 'tabela.rows[0].cells[0].appendChild(visor);');
-    return lines;
-  }
-
-  function genBotao(token, indent, primeiro) {
-    var D = dom();
-    var label = D.buttonLabel(token);
-    var slot = D.buttonSlot(token);
-    if (!slot) return [];
-    var v = buttonVarName(token);
-    var htmlLinha = '<td><input type="button" value="' + label + '" class="botao"></td>';
-    var lines = [];
-    lines.push(indent + regua('// ---- A TECLA "' + label + '"', 66));
-    lines.push(indent + '// Em HTML: ' + htmlLinha);
-    if (primeiro) {
-      lines.push(indent + '// data-btn é uma etiqueta nossa: serve para reencontrar este');
-      lines.push(indent + '// botão depois, na hora de ligar o clique (PARTE 2).');
-      lines.push(indent + '// tabela.rows[linha].cells[coluna] é a casa que JÁ existe na');
-      lines.push(indent + '// grade: a tecla só ocupa o lugar dela, nada é empurrado.');
+    if (!hasBody) {
+      var vazio = ['<!-- Nada montado ainda: arraste os blocos de Estrutura. -->'];
+      if (setup.length) vazio.push('<!-- O visor e os botões precisam do corpo antes. -->');
+      return vazio.join('\n');
     }
-    lines.push(indent + 'var ' + v + ' = document.createElement(' + Q + 'input' + Q + ');');
-    lines.push(indent + v + '.setAttribute(' + Q + 'type' + Q + ', ' + Q + 'button' + Q + ');');
-    lines.push(indent + v + '.setAttribute(' + Q + 'value' + Q + ', ' + jsString(label) + ');');
-    lines.push(indent + v + '.setAttribute(' + Q + 'class' + Q + ', ' + Q + 'botao' + Q + ');');
-    lines.push(indent + v + '.setAttribute(' + Q + 'data-btn' + Q + ', ' + jsString(token) + ');');
-    lines.push(indent + 'tabela.rows[' + slot.row + '].cells[' + slot.col + '].appendChild(' + v + ');'
-      + '  // linha ' + slot.row + ', coluna ' + slot.col);
-    return lines;
-  }
 
-  // Gera um op de setup (IR v2) -> linhas de código real.
-  function genSetup(op, indent, ctx) {
-    ctx = ctx || {};
-    switch (op.op) {
-      case 'ui.createBody':
-        return genEstilo(indent).concat(['']).concat(genCorpo(indent));
-      case 'ui.createVisor':
-        return genVisor(indent);
-      case 'ui.addButton':
-        var primeiro = !ctx.jaTemBotao;
-        ctx.jaTemBotao = true;
-        return genBotao(op.token, indent, primeiro);
-      default:
-        throw new Error('Op de setup desconhecida: ' + op.op);
+    var I1 = INDENT, I2 = INDENT + INDENT, I3 = I2 + INDENT, I4 = I3 + INDENT;
+    var out = [
+      '<!-- O CORPO: um formulário com uma tabela dentro.',
+      '     A tabela é a GRADE da calculadora: 6 linhas (<tr>) de 4 casas (<td>).',
+      '     Ela já nasce COMPLETA, então nada muda de lugar depois. -->',
+      '<form name="formulario">',
+      I1 + '<table>',
+      '',
+      I2 + '<!-- linha 0: a casa do visor, esticada pelas 4 colunas -->',
+      I2 + '<tr>'
+    ];
+    if (hasVisor) {
+      out.push(I3 + '<td colspan="4">');
+      out.push(I4 + '<!-- O VISOR é a memória: o que aparece nele fica em tela.value.');
+      out.push(I4 + '     readonly = ninguém digita direto nele. -->');
+      out.push(I4 + '<input type="text" maxlength="18" class="resultado" name="tela" id="tela" readonly>');
+      out.push(I3 + '</td>');
+    } else {
+      out.push(I3 + '<td colspan="4"></td>  <!-- vazia: esperando o visor -->');
     }
+    out.push(I2 + '</tr>');
+    out.push('');
+    out.push(I2 + '<!-- linhas 1 a 5: o teclado. Casas vazias (<td></td>) esperam botões.');
+    if (temBotao) {
+      out.push(I2 + '     data-btn é uma etiqueta nossa: o JavaScript usa ela para achar cada botão. -->');
+    } else {
+      out.push(I2 + '-->');
+    }
+    for (var r = 1; r < D.LINHAS; r++) {
+      var casas = [], temNaLinha = false;
+      for (var c = 0; c < D.COLUNAS; c++) {
+        var token = botoes[r + ',' + c];
+        if (token === undefined) {
+          casas.push('<td></td>');
+        } else {
+          temNaLinha = true;
+          casas.push('<td><input type="button" value="' + htmlAttr(D.buttonLabel(token)) +
+            '" class="botao" data-btn="' + htmlAttr(token) + '"></td>');
+        }
+      }
+      if (!temNaLinha) {
+        // linha ainda sem botões: numa linha só, para o HTML não ficar comprido
+        out.push(I2 + '<tr>' + casas.join('') + '</tr>');
+      } else {
+        out.push(I2 + '<tr>');
+        casas.forEach(function(td) { out.push(I3 + td); });
+        out.push(I2 + '</tr>');
+      }
+    }
+    out.push(I1 + '</table>');
+    out.push('</form>');
+    return out.join('\n');
   }
 
   // ------------------------------------------------------------------
-  // PARTE 2 — o código real do comportamento
+  // CSS — a aparência
+  // ------------------------------------------------------------------
+
+  function genCss(setup) {
+    var hasBody = setup.some(function(op) { return op.op === 'ui.createBody'; });
+    if (!hasBody) {
+      return '/* Sem estilo ainda: as regras aparecem quando o corpo for montado. */';
+    }
+    var out = [
+      '/* Regras de aparência — as mesmas do arquivo estilos.css original.',
+      '   "table" vale para toda <table>;',
+      '   ".resultado" vale para quem tem class="resultado" (o visor);',
+      '   ".botao" vale para TODO elemento com class="botao". */'
+    ];
+    push(out, dom().CSS_LINES);
+    return out.join('\n');
+  }
+
+  // ------------------------------------------------------------------
+  // JavaScript — o comportamento
   // ------------------------------------------------------------------
 
   // Explicação de uma operação — emitida só na PRIMEIRA vez que ela aparece,
@@ -211,8 +174,6 @@
     ctx.explicado[chave] = true;
     return linhas;
   }
-
-  function push(lines, novas) { novas.forEach(function(l) { lines.push(l); }); }
 
   function genOp(op, indent, ctx) {
     indent = indent || '';
@@ -290,62 +251,30 @@
     return lines;
   }
 
-  // ------------------------------------------------------------------
-  // Programa completo
-  // ------------------------------------------------------------------
-
-  function codegen(ir) {
-    var setup = (ir && ir.setup) || [];
-    var handlers = (ir && ir.handlers) || [];
+  function genJs(setup, handlers) {
     var hasVisor = setup.some(function(op) { return op.op === 'ui.createVisor'; });
+    var clicks = handlers.filter(function(h) { return h.event === 'button.click'; });
 
     var out = [
-      '// ===================================================================',
-      '// MontaCalc — o código REAL da sua calculadora.',
-      '// É o mesmo JavaScript que uma pessoa escreveria à mão: primeiro o',
-      '// ESTILO e a ESTRUTURA (o CSS e o HTML feitos por código), depois o',
-      '// COMPORTAMENTO (o que acontece quando alguém clica num botão).',
-      '// ===================================================================',
-      '',
-      '// -------------------------------------------------------------------',
-      '// PARTE 1 — MONTAR A CALCULADORA (aparência + peças na tela)',
-      '// -------------------------------------------------------------------',
-      'function montarCalculadora() {'
+      '// O COMPORTAMENTO da calculadora: o que acontece quando alguém clica.',
+      '// (A estrutura está no HTML e a aparência no CSS, nas caixas acima.)',
+      ''
     ];
 
-    if (setup.length === 0) {
-      out.push(INDENT + '// Nada montado ainda: arraste os blocos de Estrutura.');
-    }
-    var ctxSetup = {};
-    setup.forEach(function(op, i) {
-      if (i > 0) out.push('');
-      push(out, genSetup(op, INDENT, ctxSetup));
-    });
-    out.push('}');
-    out.push('');
-    out.push('// Chamar a função é o que faz a calculadora aparecer na tela.');
-    out.push('montarCalculadora();');
-
-    if (handlers.length === 0 && !hasVisor) {
+    if (!hasVisor && clicks.length === 0) {
+      out.push('// Nenhum botão ligado ainda: arraste os blocos de Eventos.');
       return out.join('\n');
     }
 
-    out.push('');
-    out.push('// -------------------------------------------------------------------');
-    out.push('// PARTE 2 — LIGAR OS BOTÕES (o que acontece ao clicar)');
-    out.push('// -------------------------------------------------------------------');
-    out.push('');
-
     if (hasVisor) {
       out.push('// O visor é a memória. querySelector("#tela") procura na página o');
-      out.push('// elemento de id="tela" e guarda numa variável, para as funções abaixo.');
+      out.push('// elemento de id="tela" (lá no HTML) e guarda numa variável.');
       out.push('var tela = document.querySelector(' + Q + '#tela' + Q + ');');
       out.push('');
     }
 
     var ctxBody = { explicado: {} };
-    handlers.forEach(function(h) {
-      if (h.event !== 'button.click') return;
+    clicks.forEach(function(h) {
       var body = genBody(h.body, ctxBody);
       out.push('// O que fazer quando clicarem no botão "' + h.button + '":');
       out.push('function ' + handlerName(h.button) + '() {');
@@ -355,24 +284,36 @@
       out.push('');
     });
 
-    var listeners = [];
-    handlers.forEach(function(h) {
-      if (h.event !== 'button.click') return;
-      listeners.push('document.querySelector(' + Q + '[data-btn="' + h.button + '"]' + Q + ').addEventListener(' + Q + 'click' + Q + ', ' + handlerName(h.button) + ');');
-    });
-
-    if (listeners.length) {
+    if (clicks.length) {
       out.push('// Agora ligamos cada função ao seu botão:');
       out.push('// querySelector("[data-btn=...]") acha o botão pela etiqueta que');
-      out.push('// colocamos na PARTE 1, e addEventListener("click", funcao) diz ao');
+      out.push('// colocamos no HTML, e addEventListener("click", funcao) diz ao');
       out.push('// navegador: "quando clicarem aqui, execute esta função".');
-      push(out, listeners);
+      clicks.forEach(function(h) {
+        out.push('document.querySelector(' + Q + '[data-btn="' + h.button + '"]' + Q + ').addEventListener(' + Q + 'click' + Q + ', ' + handlerName(h.button) + ');');
+      });
+    } else if (out[out.length - 1] === '') {
+      out.pop();
     }
 
     return out.join('\n');
   }
 
-  var API = { codegen: codegen, buttonIdToName: buttonIdToName, buttonVarName: buttonVarName, handlerName: handlerName };
+  // ------------------------------------------------------------------
+  // Programa completo: as três partes
+  // ------------------------------------------------------------------
+
+  function codegen(ir) {
+    var setup = (ir && ir.setup) || [];
+    var handlers = (ir && ir.handlers) || [];
+    return {
+      html: genHtml(setup),
+      css: genCss(setup),
+      js: genJs(setup, handlers)
+    };
+  }
+
+  var API = { codegen: codegen, buttonIdToName: buttonIdToName, handlerName: handlerName };
   root.MontaCalc = root.MontaCalc || {};
   root.MontaCalc.Codegen = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

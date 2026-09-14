@@ -86,21 +86,47 @@ main {
 
 #blockDiv { width: 100%; height: 100%; }
 
-#code {
+/* Painel de código em 3 caixas empilhadas: HTML, CSS e JavaScript. */
+#code-panel .panel-body { display: flex; flex-direction: column; overflow: hidden; }
+.code-part { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+.code-part + .code-part { border-top: 1px solid var(--border); }
+#part-css { flex: 0.6 1 0; }
+.code-part-head {
+  flex: none;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  background: #fbf9f2;
+  border-left: 5px solid;
+  border-bottom: 1px solid #efe9d6;
+}
+.code-part-head span { color: var(--muted); font-weight: 600; }
+#part-html .code-part-head { border-left-color: #E34C26; color: #B53A1B; }
+#part-css  .code-part-head { border-left-color: #264DE4; color: #1F3FB8; }
+#part-js   .code-part-head { border-left-color: #D4B106; color: #7A6500; }
+
+.code {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 12.5px;
   line-height: 1.5;
-  padding: 12px;
+  padding: 10px 12px;
   margin: 0;
   white-space: pre;
   color: #1f2d3d;
   tab-size: 2;
+  font-variant-ligatures: none;   /* "<!--" e "-->" aparecem como o aluno digitaria */
 }
 /* O código é real: os comentários (a explicação) ficam discretos, para o
    aluno distinguir o que o computador executa do que está sendo explicado. */
-#code .c-com { color: #78889a; font-style: italic; }
-#code .c-str { color: #A8571B; }
-#code .c-kw  { color: #8E44AD; font-weight: 700; }
+.code .c-com  { color: #78889a; font-style: italic; }
+.code .c-str  { color: #A8571B; }
+.code .c-kw   { color: #8E44AD; font-weight: 700; }
+.code .c-tag  { color: #B53A1B; font-weight: 700; }
+.code .c-attr { color: #2E7D5B; }
+.code .c-prop { color: #1F3FB8; }
 
 #preview {
   display: flex; align-items: center; justify-content: center;
@@ -196,6 +222,7 @@ button#nextBtn { display: none; background: var(--green); }
 @media (max-width: 1000px) {
   main { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
   #preview-panel { grid-column: span 2; }
+  #code-panel .panel-body { min-height: 520px; }
 }
 @media (max-width: 640px) {
   main { grid-template-columns: 1fr; }

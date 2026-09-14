@@ -43,7 +43,7 @@
   Blockly.Blocks['q_iniciar'] = { init: function() {
     this.appendDummyInput().appendField('quando o programa iniciar');
     this.setColour(COLORS.estrutura);
-    this.setTooltip('O gatilho da ESTRUTURA: vira a função montarCalculadora(), que roda antes de qualquer clique.');
+    this.setTooltip('O gatilho da ESTRUTURA: o que você encaixar aqui vira o HTML e o CSS da calculadora (as caixas de cima do painel de código).');
     this.setPreviousStatement(false, null);
     this.setNextStatement(true, null);
   }};

@@ -16,9 +16,14 @@
     if (!avaliar && root.MontaCalc && root.MontaCalc.Evaluator) avaliar = root.MontaCalc.Evaluator.evaluate;
     if (!avaliar && win.MontaCalc && win.MontaCalc.Evaluator) avaliar = win.MontaCalc.Evaluator.evaluate;
     if (typeof win.avaliar !== 'function') win.avaliar = avaliar;
-    // O código gerado é AUTOSSUFICIENTE: ele mesmo cria o <style>, o corpo,
-    // o visor e os botões (nada de funções prontas injetadas por fora).
-    win.eval(code);
+    // O código gerado vem em 3 partes e é instalado como no sandbox:
+    // CSS num <style>, HTML no <body> e, por último, o JS do comportamento.
+    var doc = win.document;
+    var estilo = doc.createElement('style');
+    estilo.textContent = code.css;
+    doc.head.appendChild(estilo);
+    doc.body.innerHTML = code.html;
+    win.eval(code.js);
     return code;
   }
 

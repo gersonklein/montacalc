@@ -23,17 +23,19 @@ até reconstruir a calculadora completa.
 BLOCKS (Blockly) → IR (JSON semântico) → validação → CODEGEN (JS legível) → RUNTIME (iframe sandbox)
 ```
 - `app/src/ir/serialize.js` — Blockly workspace → IR (`serializeWorkspace`) / `irFromBlocks` (puro).
-- `app/src/compiler/codegen.js` — IR → **JS real e comentado** (puro). Emite os passos de
-  verdade (`document.createElement`, `setAttribute`, `appendChild`, `addEventListener`) —
-  nunca chamadas-atalho tipo `criarCorpo()` — com comentários que mostram o HTML/CSS
-  equivalente e explicam cada linha. É o texto que o aluno lê E o que realmente roda.
+- `app/src/compiler/codegen.js` — IR → **código real e comentado em 3 partes** (puro):
+  `codegen(ir)` devolve `{ html, css, js }` (CHANGE-008). `html` é o markup de verdade
+  (`<form>`/`<table>` com visor e botões nas suas casas), `css` são as regras de `estilos.css`
+  e `js` só o comportamento (funções `aoClicarX` + `addEventListener`) — nunca chamadas-atalho
+  tipo `criarCorpo()`. É o texto que o aluno lê (3 caixas empilhadas no painel) E o que roda.
 - `app/src/runtime/evaluator.js` — parser matemático (`parseEval`), fonte (`parseEval.toString()`)
   é reutilizada no sandbox (fonte única). Sem `eval`.
 - `app/src/runtime/calc-dom.js` — **fonte única do layout**: grade 6×4 (linha 0 = visor),
   rótulos, `buttonSlot` (ordem B11), `CSS_LINES` (as regras de `estilos.css`) e
   `calculatorMarkup()` (usado nos testes de referência). Consumido pelo codegen.
 - `app/src/runtime/sandbox.js` — iframe `sandbox="allow-scripts"` (sem allow-same-origin), começa
-  **vazio e sem o CSS da calculadora**: o próprio código do aluno cria o `<style>` e o DOM.
+  **vazio e sem o CSS da calculadora**: `install` recebe `{html, css, js}` e instala nessa ordem
+  (CSS num `<style>`, HTML no `<body>`, depois roda o JS). `run-program.js` faz o mesmo em jsdom.
   O ambiente só oferece `avaliar` (a matemática). Harness `postMessage` (`install`/`case`/`struct`).
 - `app/src/blocks/block-defs.js` — blocos Blockly (evento + estrutura) + toolbox por nível.
 - `app/src/levels/levels.js` — 12 níveis + casos de sucesso (estrutura cumulativa + comportamento).
@@ -52,11 +54,13 @@ BLOCKS (Blockly) → IR (JSON semântico) → validação → CODEGEN (JS legív
   as ações têm `previous`/`next`. Sem isso, o IR sai com `body: []` / `setup: []` e nada encaixa.
   Coberto por `tests/dom/blockly-connections.test.js`.
 - **Código real, sem caixa-preta:** o bloco é simplificado, o código NÃO. Se um passo novo for
-  adicionado, ele precisa aparecer no painel como código executável comentado. Nada de funções
-  auxiliares injetadas por fora do que o aluno lê.
-- **A grade nasce completa:** `ui.createBody` cria a moldura definitiva (6 linhas × 4 colunas,
-  linha 0 = casa do visor com `colspan="4"`). Visor e botões apenas PREENCHEM casas existentes
-  (`tabela.rows[l].cells[c]`), então a calculadora nunca "cresce" nem desloca peças.
+  adicionado, ele precisa aparecer no painel (na caixa certa: HTML, CSS ou JS) como código
+  executável comentado. Nada de funções auxiliares injetadas por fora do que o aluno lê.
+- **3 partes separadas (CHANGE-008):** estrutura no HTML, aparência no CSS, comportamento no JS —
+  como `calc.html`/`estilos.css`/`operacoes.js`. O JS não cria elementos nem estilos.
+- **A grade nasce completa:** `ui.createBody` gera a moldura definitiva no HTML (6 linhas × 4
+  colunas, linha 0 = casa do visor com `colspan="4"`). Visor e botões apenas PREENCHEM casas
+  existentes (`Dom.buttonSlot`), então a calculadora nunca "cresce" nem desloca peças.
 - **Construção aditiva:** o sandbox começa vazio; o preview mostra exatamente o que o aluno montou.
   A estrutura esperada de um nível é a união cumulativa dos botões dos níveis 1..N
   (`Levels.expectedStructure(id)`), injetada como primeiro `caso` (`{ estrutura }`) de cada nível.

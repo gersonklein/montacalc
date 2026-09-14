@@ -2,12 +2,12 @@
  * MontaCalc — Sandbox de execução (iframe isolado).
  * O código gerado roda DENTRO de um iframe `sandbox="allow-scripts"` (sem allow-same-origin).
  * O iframe começa VAZIO e SEM estilos da calculadora: é o PRÓPRIO código do estudante
- * (o mesmo que ele lê no painel) que cria o <style>, monta o corpo/visor/botões e liga
- * os cliques. A única coisa que o ambiente oferece é `avaliar` (a matemática), porque
+ * (o mesmo que ele lê no painel, em 3 partes) que entra: o CSS num <style>, o HTML no
+ * <body> (corpo/visor/botões) e o JS que liga os cliques. A única coisa que o ambiente oferece é `avaliar` (a matemática), porque
  * na calculadora original esse papel era do eval() do navegador.
  * O código do estudante nunca toca o DOM da aplicação host.
  * Harness via postMessage:
- *   install(code) -> installed{ok}
+ *   install(code:{html,css,js}) -> installed{ok}
  *   case{clicks}  -> caseResult{value}
  *   struct        -> structResult{struct:{hasBody,hasVisor,buttons[]}}
  */
@@ -30,7 +30,12 @@
       + 'function __limpar(){ document.body.innerHTML = ""; '
       + '  var antigos = document.querySelectorAll("head style:not(#estilo-base)"); '
       + '  for (var i=0;i<antigos.length;i++){ antigos[i].parentNode.removeChild(antigos[i]); } } '
-      + 'function __install(code){ try { __limpar(); (0,eval)(code); return true; } catch(e) { return false; } }'
+      // O programa chega em 3 partes (html, css, js): o CSS vira um <style>, o HTML
+      // vai para o <body> e o JS roda por último, quando os elementos já existem.
+      + 'function __install(p){ try { __limpar(); if (typeof p === "string") p = { js: p }; p = p || {}; '
+      + '  var estilo = document.createElement("style"); estilo.textContent = p.css || ""; document.head.appendChild(estilo); '
+      + '  document.body.innerHTML = p.html || ""; '
+      + '  (0,eval)(p.js || ""); return true; } catch(e) { return false; } }'
       + 'function __struct(){ var btns=[]; var list=document.querySelectorAll("[data-btn]"); '
       + '  for (var i=0;i<list.length;i++){ btns.push(list[i].getAttribute("data-btn")); } '
       + '  return { hasBody: !!document.querySelector("form[name=\\"formulario\\"]"), '
